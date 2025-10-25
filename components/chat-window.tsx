@@ -11,26 +11,24 @@ import { Send, X, CheckCircle } from "lucide-react"
 
 interface Mensagem {
   id: number
+  feedback_id: number
+  remetente: "usuario" | "admin"
   mensagem: string
-  remetente_id: number
-  remetente_nome: string
-  remetente_avatar: string | null
-  criado_em: string
+  data: string
   lida: boolean
 }
 
 interface ChatWindowProps {
-  conversaId: number
+  feedbackId: string
   titulo: string
   onClose: () => void
-  onFinalizar?: () => void // Adicionar callback para finalizar
+  onFinalizar?: () => void
 }
 
-export function ChatWindow({ conversaId, titulo, onClose, onFinalizar }: ChatWindowProps) {
+export function ChatWindow({ feedbackId, titulo, onClose, onFinalizar }: ChatWindowProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
   const [novaMensagem, setNovaMensagem] = useState("")
   const [loading, setLoading] = useState(false)
-  const [userId, setUserId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -39,15 +37,11 @@ export function ChatWindow({ conversaId, titulo, onClose, onFinalizar }: ChatWin
 
   useEffect(() => {
     carregarMensagens()
-    // Buscar ID do usuário atual
-    fetch("/api/user")
-      .then((res) => res.json())
-      .then((data) => setUserId(data.id))
 
     // Atualizar mensagens a cada 3 segundos
     const interval = setInterval(carregarMensagens, 3000)
     return () => clearInterval(interval)
-  }, [conversaId])
+  }, [feedbackId])
 
   useEffect(() => {
     scrollToBottom()
@@ -55,10 +49,10 @@ export function ChatWindow({ conversaId, titulo, onClose, onFinalizar }: ChatWin
 
   const carregarMensagens = async () => {
     try {
-      const response = await fetch(`/api/chat/${conversaId}`)
+      const response = await fetch(`/api/chat/feedback/${feedbackId}`)
       if (response.ok) {
         const data = await response.json()
-        setMensagens(data)
+        setMensagens(data.mensagens || [])
       }
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error)
@@ -71,16 +65,19 @@ export function ChatWindow({ conversaId, titulo, onClose, onFinalizar }: ChatWin
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/chat/${conversaId}`, {
+      const response = await fetch(`/api/chat/feedback/${feedbackId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mensagem: novaMensagem }),
       })
 
       if (response.ok) {
-        const mensagemCriada = await response.json()
-        setMensagens([...mensagens, mensagemCriada])
+        const data = await response.json()
+        if (data.mensagem) {
+          setMensagens([...mensagens, data.mensagem])
+        }
         setNovaMensagem("")
+        await carregarMensagens()
       }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error)
@@ -115,20 +112,19 @@ export function ChatWindow({ conversaId, titulo, onClose, onFinalizar }: ChatWin
       {/* Mensagens */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {mensagens.map((msg) => {
-          const isOwn = msg.remetente_id === userId
+          const isAdmin = msg.remetente === "admin"
           return (
-            <div key={msg.id} className={`flex gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
+            <div key={msg.id} className={`flex gap-2 ${isAdmin ? "flex-row-reverse" : "flex-row"}`}>
               <Avatar className="h-8 w-8">
-                <AvatarImage src={msg.remetente_avatar || undefined} />
-                <AvatarFallback>{msg.remetente_nome.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{isAdmin ? "A" : "U"}</AvatarFallback>
               </Avatar>
-              <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"} max-w-[70%]`}>
-                <span className="text-xs text-muted-foreground mb-1">{msg.remetente_nome}</span>
-                <div className={`rounded-lg px-3 py-2 ${isOwn ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+              <div className={`flex flex-col ${isAdmin ? "items-end" : "items-start"} max-w-[70%]`}>
+                <span className="text-xs text-muted-foreground mb-1">{isAdmin ? "Admin" : "Usuário"}</span>
+                <div className={`rounded-lg px-3 py-2 ${isAdmin ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                   <p className="text-sm">{msg.mensagem}</p>
                 </div>
                 <span className="text-xs text-muted-foreground mt-1">
-                  {new Date(msg.criado_em).toLocaleTimeString("pt-BR", {
+                  {new Date(msg.data).toLocaleTimeString("pt-BR", {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}

@@ -40,7 +40,7 @@ export function FeedbackManager() {
     id: "",
     isOpen: false,
   })
-  const [chatAberto, setChatAberto] = useState<{ conversaId: number; titulo: string; feedbackId: string } | null>(null)
+  const [chatAberto, setChatAberto] = useState<{ feedbackId: string; titulo: string } | null>(null)
 
   const fetchFeedbacks = async () => {
     try {
@@ -83,23 +83,8 @@ export function FeedbackManager() {
     }
   }
 
-  const iniciarChat = async (feedbackId: string, nome: string) => {
-    try {
-      const response = await fetch("/api/chat/conversas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setChatAberto({ conversaId: data.id, titulo: `Chat com ${nome}`, feedbackId })
-        // Marcar como lido ao abrir o chat
-        updateStatus(feedbackId, "lido")
-      }
-    } catch (error) {
-      console.error("Erro ao iniciar chat:", error)
-    }
+  const iniciarChat = (feedbackId: string, nome: string) => {
+    setChatAberto({ feedbackId, titulo: `Chat com ${nome}` })
   }
 
   const finalizarConversa = (feedbackId: string) => {
@@ -352,7 +337,7 @@ export function FeedbackManager() {
 
         {chatAberto && (
           <ChatWindow
-            conversaId={chatAberto.conversaId}
+            feedbackId={chatAberto.feedbackId}
             titulo={chatAberto.titulo}
             onClose={() => setChatAberto(null)}
             onFinalizar={() => finalizarConversa(chatAberto.feedbackId)}

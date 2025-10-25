@@ -19,18 +19,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 })
     }
 
-    const result = await query(
-      `INSERT INTO feedback (nome, email, telefone, assunto, mensagem, status, criado_em) 
+    // Inserir feedback
+    const result: any = await query(
+      `INSERT INTO feedback (nome, email, telefone, assunto, mensagem, status, criado_em)
        VALUES (?, ?, ?, ?, ?, 'novo', NOW())`,
       [nome, email, telefone || null, assunto || "Outros", mensagem],
     )
 
-    console.log("[v0] Feedback inserido com sucesso:", result)
+    const feedbackId = result.insertId
+
+    console.log("[v0] Feedback inserido com sucesso:", { feedbackId, ...result })
+
+    // Inserir mensagem no chat automaticamente
+    try {
+      await query(
+        `INSERT INTO mensagens_chat (feedback_id, remetente, mensagem, data, lida)
+         VALUES (?, 'usuario', ?, NOW(), FALSE)`,
+        [feedbackId, mensagem],
+      )
+      console.log("[v0] Mensagem do feedback adicionada ao chat com sucesso")
+    } catch (chatError) {
+      console.error("[v0] Erro ao inserir mensagem no chat:", chatError)
+      // Não falha o feedback se o chat der erro, apenas loga
+    }
 
     return NextResponse.json(
       {
         success: true,
         message: "Mensagem enviada com sucesso! Entraremos em contato em breve.",
+        feedbackId,
       },
       { status: 200 },
     )
